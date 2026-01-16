@@ -21,7 +21,7 @@ func main() {
     ctx := context.Background()
 
     // Загружаем конфигурацию
-    cfg, err := config.LoadConfig("config.yaml")
+    cfg, err := config.LoadConfig("configgoogledrive.yaml")
     if err != nil {
         panic(err)
     }
@@ -57,7 +57,7 @@ go get github.com/your-username/drive-uploader
 ```
 
 ```go
-import "github.com/your-username/drive-uploader/pkg/googledrive"
+import "github.com/your-username/drive-uploader/pkg/googleupload"
 ```
 
 ### Для разработки

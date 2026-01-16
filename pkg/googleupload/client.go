@@ -1,9 +1,11 @@
-package googledrive
+package googleupload
 
 import (
 	"context"
-	"drive-uploader/pkg/config"
 	"fmt"
+
+	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
+
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -21,11 +23,11 @@ type GoogleDisks struct {
 
 type GoogleDisk struct {
 	Srv *drive.Service
-	cfg *config.ConfigGoogleDrive
+	cfg *configgoogledrive.ConfigGoogleDrive
 }
 
 // NewDriveService создаёт новый сервис Drive API
-func NewDriveService(ctx context.Context, config config.ConfigGoogleDrives) (*GoogleDisks, error) {
+func NewDriveService(ctx context.Context, config configgoogledrive.ConfigGoogleDrives) (*GoogleDisks, error) {
 	var (
 		gdDefault      *GoogleDisk
 		listGoogleDisk = make([]*GoogleDisk, 0, len(config))

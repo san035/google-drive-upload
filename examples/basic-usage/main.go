@@ -4,18 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 
-	"drive-uploader/pkg/config"
-	"drive-uploader/pkg/googledrive"
+	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
 )
 
 func main() {
 	ctx := context.Background()
 
 	// Загружаем конфигурацию
-	cfg, err := config.LoadConfig("config.yaml")
+	cfg, err := configgoogledrive.LoadConfig("config.yaml")
 	if err != nil {
 		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
 	}

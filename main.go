@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"drive-uploader/pkg/config"
-	"drive-uploader/pkg/googledrive"
+	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
+	"github.com/san035/google-drive-upload/pkg/googleupload"
+
 	"log/slog"
 	"os"
 )
@@ -15,13 +16,13 @@ const (
 func main() {
 	ctx := context.Background()
 
-	cfg, err := config.LoadConfig()
+	cfg, err := configgoogledrive.LoadConfig()
 	if err != nil {
 		slog.Error("Ошибка загрузки конфигурации", "error", err)
 		os.Exit(1)
 	}
 
-	driveService, err := googledrive.NewDriveService(ctx, cfg.ConfigGoogleDrives)
+	driveService, err := googleupload.NewDriveService(ctx, cfg.ConfigGoogleDrives)
 	if err != nil {
 		slog.Error("Ошибка создания сервиса Drive", "error", err)
 		os.Exit(1)

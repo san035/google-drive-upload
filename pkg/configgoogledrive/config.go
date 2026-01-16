@@ -1,4 +1,4 @@
-package config
+package configgoogledrive
 
 import (
 	"fmt"

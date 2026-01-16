@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -141,6 +142,10 @@ func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) err
 	files, err := gd.GoogleDiskDefault.Srv.Files.List().Q(query).
 		Fields("files(id, name, modifiedTime)").OrderBy("modifiedTime asc").Do()
 	if err != nil {
+		// Если ошибка "Not found" (404), это нормально - просто нет файлов, выходим без ошибки
+		if apiErr, ok := err.(*googleapi.Error); ok && apiErr.Code == 404 {
+			return nil
+		}
 		return fmt.Errorf("ошибка получения списка файлов: %w", err)
 	}
 

@@ -2,7 +2,7 @@ package googledrive
 
 import (
 	"context"
-	"drive-uploader/config"
+	"drive-uploader/pkg/config"
 	"fmt"
 	"log/slog"
 	"os"
@@ -73,6 +73,12 @@ func NewDriveService(ctx context.Context, config config.ConfigGoogleDrives) (*Go
 
 // UploadFile загружает файл на Google Drive
 func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
+	// Удаляем самые старые копии, оставляя UploadCopiesCount - 1 копий
+	if err := gd.deleteOldCopies(ctx, filename); err != nil {
+		slog.Warn("ошибка удаления старых копий", "filename", filename, "error", err)
+		// Не прерываем процесс загрузки, если не удалось удалить старые копии
+	}
+
 	// Получаем информацию о файле
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
@@ -117,6 +123,41 @@ func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 		"filename", filename,
 		"fileSize", FormatBytes(fileSize),
 		"freeSpaceAfter", FormatBytes(quota.FreeBytes-fileSize))
+
+	return nil
+}
+
+// deleteOldCopies удаляет самые старые копии файла, оставляя UploadCopiesCount - 1 копий
+func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) error {
+	// Получаем базовое имя файла без пути
+	basename := filepath.Base(filename)
+
+	// Получаем список файлов в папке с таким же именем
+	query := fmt.Sprintf("'%s' in parents and name = '%s' and trashed = false",
+		gd.GoogleDiskDefault.cfg.FolderID, basename)
+
+	files, err := gd.GoogleDiskDefault.Srv.Files.List().Q(query).
+		Fields("files(id, name, modifiedTime)").OrderBy("modifiedTime asc").Do()
+	if err != nil {
+		return fmt.Errorf("ошибка получения списка файлов: %w", err)
+	}
+
+	// Если файлов меньше или равно UploadCopiesCount - 1, ничего не удаляем
+	maxCopies := gd.GoogleDiskDefault.cfg.UploadCopiesCount - 1
+	if len(files.Files) <= maxCopies {
+		return nil
+	}
+
+	// Удаляем самые старые файлы, оставляя только maxCopies копий
+	filesToDelete := len(files.Files) - maxCopies
+	for i := 0; i < filesToDelete; i++ {
+		err := gd.GoogleDiskDefault.Srv.Files.Delete(files.Files[i].Id).Context(ctx).Do()
+		if err != nil {
+			slog.Warn("ошибка удаления файла", "fileId", files.Files[i].Id, "filename", files.Files[i].Name, "error", err)
+		} else {
+			slog.Info("удален старый файл", "filename", files.Files[i].Name, "modifiedTime", files.Files[i].ModifiedTime)
+		}
+	}
 
 	return nil
 }

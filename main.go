@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"drive-uploader/config"
-	"drive-uploader/googledrive"
+	"drive-uploader/pkg/config"
+	"drive-uploader/pkg/googledrive"
 	"log/slog"
 	"os"
 )

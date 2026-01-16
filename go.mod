@@ -1,4 +1,4 @@
-module drive-uploader
+module github.com/san035/google-drive-upload
 
 go 1.25
 

@@ -4,30 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"os"
 
 	"golang.org/x/oauth2"
-	"google.golang.org/api/drive/v3"
 )
-
-type GoogleDisk struct {
-	Srv *drive.Service
-}
-
-// NewDriveService создаёт новый сервис Drive API
-func NewDriveService(ctx context.Context, config *oauth2.Config, token *oauth2.Token) (*GoogleDisk, error) {
-	client := config.Client(ctx, token)
-	srv, err := drive.New(client)
-	if err != nil {
-		return nil, err
-	}
-	gd := GoogleDisk{
-		Srv: srv,
-	}
-	return &gd, nil
-}
 
 // GetToken возвращает токен доступа (из кэша, обновляет или запрашивает новый)
 func GetToken(config *oauth2.Config, tokenFile string) (*oauth2.Token, error) {
@@ -81,7 +62,7 @@ func GetToken(config *oauth2.Config, tokenFile string) (*oauth2.Token, error) {
 
 // LoadToken загружает токен из JSON файла
 func LoadToken(path string) (*oauth2.Token, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -101,22 +82,5 @@ func SaveToken(path string, token *oauth2.Token) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, data, 0644)
-}
-
-// UploadFile загружает файл на Google Drive
-func (gd *GoogleDisk) UploadFile(filename, folderID string) error {
-	file, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("ошибка открытия файла: %w", err)
-	}
-	defer file.Close()
-
-	driveFile := &drive.File{
-		Name:    filename,
-		Parents: []string{folderID},
-	}
-
-	_, err = gd.Srv.Files.Create(driveFile).Media(file).Context(context.Background()).Do()
-	return err
+	return os.WriteFile(path, data, 0644)
 }

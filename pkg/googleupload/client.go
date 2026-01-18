@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
-
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
@@ -24,16 +21,20 @@ type GoogleDisks struct {
 
 type GoogleDisk struct {
 	Srv *drive.Service
-	cfg *configgoogledrive.ConfigGoogleDrive
+	cfg *ConfigGoogleDrive
 }
 
 // NewDriveService создаёт новый сервис Drive API
-func NewDriveService(ctx context.Context, config configgoogledrive.ConfigGoogleDrives) (*GoogleDisks, error) {
+func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) {
 	var (
 		gdDefault      *GoogleDisk
-		listGoogleDisk = make([]*GoogleDisk, 0, len(config))
+		listGoogleDisk = make([]*GoogleDisk, 0, len(config.ConfigGoogleDrives))
 	)
-	for _, cfg := range config {
+
+	// Получаем хост и порт для OAuth callback
+	callbackHostPort := config.OAuthCallbackHostPort
+
+	for _, cfg := range config.ConfigGoogleDrives {
 		data, err := os.ReadFile(cfg.GoogleCredentialsFile)
 		if err != nil {
 			return nil, err
@@ -44,22 +45,24 @@ func NewDriveService(ctx context.Context, config configgoogledrive.ConfigGoogleD
 			return nil, err
 		}
 
-		tokenFile := strings.TrimSuffix(cfg.GoogleCredentialsFile, filepath.Ext(cfg.GoogleCredentialsFile)) + "_token.json"
-		token, err := GetToken(oauth2Config, tokenFile)
+		// Устанавливаем redirect URL для локального сервера авторизации
+		oauth2Config.RedirectURL = "http://" + callbackHostPort + "/oauth2/callback"
+
+		gd := &GoogleDisk{
+			cfg: cfg,
+		}
+
+		token, err := gd.GetToken(oauth2Config)
 		if err != nil {
 			return nil, err
 		}
 
 		client := oauth2Config.Client(ctx, token)
-		srv, err := drive.NewService(ctx, option.WithHTTPClient(client))
+		gd.Srv, err = drive.NewService(ctx, option.WithHTTPClient(client))
 		if err != nil {
 			return nil, err
 		}
 
-		gd := &GoogleDisk{
-			Srv: srv,
-			cfg: cfg,
-		}
 		if gdDefault == nil {
 			gdDefault = gd
 		}
@@ -159,9 +162,9 @@ func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) err
 	for i := 0; i < filesToDelete; i++ {
 		err := gd.GoogleDiskDefault.Srv.Files.Delete(files.Files[i].Id).Context(ctx).Do()
 		if err != nil {
-			slog.Warn("ошибка удаления файла", "fileId", files.Files[i].Id, "filename", files.Files[i].Name, "error", err)
+			slog.Warn("ошибка удаления файла в google disk", "fileId", files.Files[i].Id, "filename", files.Files[i].Name, "error", err)
 		} else {
-			slog.Info("удален старый файл", "filename", files.Files[i].Name, "modifiedTime", files.Files[i].ModifiedTime)
+			slog.Info("удален старый файл в google disk", "filename", files.Files[i].Name, "modifiedTime", files.Files[i].ModifiedTime)
 		}
 	}
 

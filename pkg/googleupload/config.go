@@ -1,14 +1,16 @@
-package configgoogledrive
+package googleupload
 
 import (
 	"fmt"
-	"os"
 
-	"gopkg.in/yaml.v3"
+	"github.com/ilyakaznacheev/cleanenv"
 )
 
+const configFilyDefault = "config.yaml"
+
 type Config struct {
-	ConfigGoogleDrives ConfigGoogleDrives `yaml:"config_google_drives"`
+	OAuthCallbackHostPort string             `yaml:"oauth_callback_host_port" default:"localhost:8080"` // Хост и порт для OAuth callback (по умолчанию "localhost:80909")
+	ConfigGoogleDrives    ConfigGoogleDrives `yaml:"config_google_drives"`
 }
 
 type ConfigGoogleDrives []*ConfigGoogleDrive
@@ -20,29 +22,22 @@ type ConfigGoogleDrive struct {
 	FolderID              string `yaml:"folder_id" envconfig:"FOLDER_ID"`
 }
 
-// LoadConfig загружает конфигурацию из YAML файлов
+// LoadConfig загружает конфигурацию из YAML файлов с помощью cleanenv
 // Если файлы не указаны, использует config.yaml
 func LoadConfig(yamlFiles ...string) (*Config, error) {
 	// Если файлы не указаны, используем config.yaml по умолчанию
 	if len(yamlFiles) == 0 {
-		yamlFiles = []string{"config.yaml"}
+		yamlFiles = []string{configFilyDefault}
 	}
 
 	config := &Config{}
-	var configData []byte
 
-	// Загружаем данные из указанных YAML файлов
+	// Загружаем данные из указанных YAML файлов с помощью cleanenv
+	// Последующие файлы перезаписывают значения из предыдущих
 	for _, file := range yamlFiles {
-		data, err := os.ReadFile(file)
-		if err != nil {
+		if err := cleanenv.ReadConfig(file, config); err != nil {
 			return nil, fmt.Errorf("ошибка чтения файла конфигурации %s: %v", file, err)
 		}
-		configData = append(configData, data...)
-	}
-
-	// Парсим YAML данные
-	if err := yaml.Unmarshal(configData, config); err != nil {
-		return nil, fmt.Errorf("ошибка парсинга YAML конфигурации: %v", err)
 	}
 
 	return config, nil

@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
+	"github.com/san035/google-drive-upload/pkg/googleupload"
 )
 
 func main() {
@@ -18,7 +19,7 @@ func main() {
 	}
 
 	// Создаем сервис Google Drive
-	driveService, err := googledrive.NewDriveService(ctx, cfg.ConfigGoogleDrives)
+	driveService, err := googleupload.NewDriveService(ctx, cfg.ConfigGoogleDrives)
 	if err != nil {
 		log.Fatalf("Ошибка создания сервиса Drive: %v", err)
 	}

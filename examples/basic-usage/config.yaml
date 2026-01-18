@@ -1,17 +1,17 @@
-# Пример конфигурации для drive-uploader
+# Configuration example for drive-uploader
 
-# Список настроек Google Drive аккаунтов
+# Google Drive accounts settings list
 config_google_drives:
-  # Первый аккаунт (будет использоваться по умолчанию)
+  # First account (will be used by default)
   - id: "personal-drive"
-    # Путь к файлу с OAuth2 credentials от Google Cloud Console
+    # Path to OAuth2 credentials file from Google Cloud Console
     google_credentials_file: "google_credentials.json"
-    # Максимальное количество копий файла (старые будут удаляться)
+    # Maximum number of file copies (old ones will be deleted)
     upload_copies_count: 3
-    # ID папки в Google Drive для загрузки файлов, из url папки https://drive.google.com/drive/folders/1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3
+    # Google Drive folder ID for uploading files, from folder URL https://drive.google.com/drive/folders/1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3
     folder_id: "1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3"
 
-  # Второй аккаунт (опционально)
+  # Second account (optional)
   # - id: "work-drive"
   #   google_credentials_file: "work-credentials.json"
   #   upload_copies_count: 5

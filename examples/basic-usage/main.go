@@ -3,33 +3,36 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
-	"github.com/san035/google-drive-upload/pkg/configgoogledrive"
 	"github.com/san035/google-drive-upload/pkg/googleupload"
 )
 
 func main() {
 	ctx := context.Background()
 
-	// Загружаем конфигурацию
-	cfg, err := configgoogledrive.LoadConfig("config.yaml")
+	// Load configuration
+	cfg, err := googleupload.LoadConfig()
 	if err != nil {
-		log.Fatalf("Ошибка загрузки конфигурации: %v", err)
+		slog.Error("Failed to load configuration", slog.Any("error", err))
+		os.Exit(1)
 	}
 
-	// Создаем сервис Google Drive
-	driveService, err := googleupload.NewDriveService(ctx, cfg.ConfigGoogleDrives)
+	// Create Google Drive service
+	driveService, err := googleupload.NewDriveService(ctx, cfg)
 	if err != nil {
-		log.Fatalf("Ошибка создания сервиса Drive: %v", err)
+		slog.Error("Failed to create Drive service", slog.Any("error", err))
+		os.Exit(1)
 	}
 
-	// Пример 1: Загрузка одного файла
+	// Example 1: Upload a single file
 	filename := "example.txt"
-	fmt.Printf("Загружаем файл: %s\n", filename)
+	fmt.Printf("Uploading file: %s\n", filename)
 	if err := driveService.UploadFile(ctx, filename); err != nil {
-		log.Fatalf("Ошибка загрузки: %v", err)
+		slog.Error("Failed to upload file", slog.Any("error", err))
+		os.Exit(1)
 	}
-	fmt.Printf("Файл %s успешно загружен!\n", filename)
+	fmt.Printf("File %s uploaded successfully!\n", filename)
 
 }

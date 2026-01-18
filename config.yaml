@@ -7,7 +7,7 @@ config_google_drives:
     google_credentials_file: "google_credentials.json"
     upload_copies_count: 3
     folder_id: "1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3"
-  
+
   # Пример дополнительной конфигурации для второго диска
   # - id: "1"
   #   google_credentials_file: "google_credentials_secondary.json"

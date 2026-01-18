@@ -1,0 +1,8 @@
+# Create new version tag in version.txt and push to repo
+.PHONY: create-new-version-tag
+test:
+	@set -x && cp version.txt version.old && perl -pe 's/(\d+)(?=[^.\d]*$$)/$$1+1/e' version.old > version.txt
+	@set -x && VERSION=$$(cat version.txt | tr -d '\n\r') && git tag -a "$$VERSION" -m "Release version $$VERSION" && git push origin $$VERSION
+	@rm version.old
+	@echo "Tag $$(cat version.txt | tr -d '\n\r') created and pushed successfully!"
+

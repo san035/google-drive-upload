@@ -76,19 +76,18 @@ func NewDriveService(ctx context.Context, config configgoogledrive.ConfigGoogleD
 
 // UploadFile загружает файл на Google Drive
 func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
-	// Удаляем самые старые копии, оставляя UploadCopiesCount - 1 копий
-	if err := gd.deleteOldCopies(ctx, filename); err != nil {
-		slog.Warn("ошибка удаления старых копий", "filename", filename, "error", err)
-		// Не прерываем процесс загрузки, если не удалось удалить старые копии
-	}
-
 	// Получаем информацию о файле
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
 		return fmt.Errorf("ошибка получения информации о файле: %w", err)
 	}
-
 	fileSize := fileInfo.Size()
+
+	// Удаляем самые старые копии, оставляя UploadCopiesCount - 1 копий
+	if err := gd.deleteOldCopies(ctx, filename); err != nil {
+		slog.Warn("ошибка удаления старых копий", "filename", filename, "error", err)
+		// Не прерываем процесс загрузки, если не удалось удалить старые копии
+	}
 
 	// Проверяем наличие свободного места
 	hasSpace, quota, err := gd.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)

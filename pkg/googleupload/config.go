@@ -6,7 +6,7 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
-const configFilyDefault = "config.yaml"
+const ConfigFilyDefault = "config.yaml"
 
 type Config struct {
 	OAuthCallbackHostPort string             `yaml:"oauth_callback_host_port" default:"localhost:8080"` // Хост и порт для OAuth callback (по умолчанию "localhost:80909")
@@ -27,7 +27,7 @@ type ConfigGoogleDrive struct {
 func LoadConfig(yamlFiles ...string) (*Config, error) {
 	// Если файлы не указаны, используем config.yaml по умолчанию
 	if len(yamlFiles) == 0 {
-		yamlFiles = []string{configFilyDefault}
+		yamlFiles = []string{ConfigFilyDefault}
 	}
 
 	config := &Config{}

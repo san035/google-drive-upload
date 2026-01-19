@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	fileToUpload = "send_file.txt"
+	fileUploadFefault = "send_file.txt"
 )
 
 func main() {
@@ -28,10 +28,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := driveService.UploadFile(ctx, fileToUpload); err != nil {
+	var fileUpload string
+	if len(os.Args) > 1 {
+		fileUpload = os.Args[1]
+	} else {
+		fileUpload = fileUploadFefault
+	}
+
+	if err := driveService.UploadFile(ctx, fileUpload); err != nil {
 		slog.Error("Ошибка загрузки файла", "error", err)
 		os.Exit(1)
 	}
-
-	slog.Info("Файл успешно загружен в Google Drive", "file", fileToUpload)
 }

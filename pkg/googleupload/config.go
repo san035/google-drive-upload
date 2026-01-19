@@ -18,7 +18,7 @@ type ConfigGoogleDrives []*ConfigGoogleDrive
 type ConfigGoogleDrive struct {
 	Id                    string `yaml:"id" mapstructure:"id" default:"0"`
 	GoogleCredentialsFile string `yaml:"google_credentials_file" mapstructure:"google_credentials_file" default:"google_credentials.json"`
-	UploadCopiesCount     int    `yaml:"upload_copies_count" mapstructure:"upload_copies_count" default:"3"`
+	UploadCopiesCount     int    `yaml:"upload_copies_count" mapstructure:"upload_copies_count" default:"1"`
 	FolderID              string `yaml:"folder_id" mapstructure:"folder_id"`
 }
 

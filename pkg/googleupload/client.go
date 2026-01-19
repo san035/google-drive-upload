@@ -24,6 +24,10 @@ type GoogleDisk struct {
 	cfg *ConfigGoogleDrive
 }
 
+type Option struct {
+	Id string
+}
+
 // NewDriveService создаёт новый сервис Drive API
 func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) {
 	var (
@@ -78,7 +82,7 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 }
 
 // UploadFile загружает файл на Google Drive
-func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
+func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 	// Получаем информацию о файле
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
@@ -87,13 +91,13 @@ func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 	fileSize := fileInfo.Size()
 
 	// Удаляем самые старые копии, оставляя UploadCopiesCount - 1 копий
-	if err := gd.deleteOldCopies(ctx, filename); err != nil {
+	if err := gds.deleteOldCopies(ctx, filename); err != nil {
 		slog.Warn("ошибка удаления старых копий", "filename", filename, "error", err)
 		// Не прерываем процесс загрузки, если не удалось удалить старые копии
 	}
 
 	// Проверяем наличие свободного места
-	hasSpace, quota, err := gd.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
+	hasSpace, quota, err := gds.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
 	if err != nil {
 		return fmt.Errorf("ошибка проверки свободного места: %w", err)
 	}
@@ -115,11 +119,11 @@ func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 	}()
 
 	driveFile := &drive.File{
-		Name:    filename,
-		Parents: []string{gd.GoogleDiskDefault.cfg.FolderID},
+		Name:    filepath.Base(filename),
+		Parents: []string{gds.GoogleDiskDefault.cfg.FolderID},
 	}
 
-	_, err = gd.GoogleDiskDefault.Srv.Files.Create(driveFile).Media(file).Context(ctx).Do()
+	_, err = gds.GoogleDiskDefault.Srv.Files.Create(driveFile).Media(file).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("ошибка загрузки файла: %w", err)
 	}
@@ -127,21 +131,23 @@ func (gd *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 	slog.Info("Файл успешно загружен",
 		"filename", filename,
 		"fileSize", FormatBytes(fileSize),
-		"freeSpaceAfter", FormatBytes(quota.FreeBytes-fileSize))
+		"freeSpaceAfter", FormatBytes(quota.FreeBytes-fileSize),
+		slog.String("url", "https://drive.google.com/drive/folders/"+gds.GetIDFolder()),
+	)
 
 	return nil
 }
 
 // deleteOldCopies удаляет самые старые копии файла, оставляя UploadCopiesCount - 1 копий
-func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) error {
+func (gds *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) error {
 	// Получаем базовое имя файла без пути
 	basename := filepath.Base(filename)
 
 	// Получаем список файлов в папке с таким же именем
 	query := fmt.Sprintf("'%s' in parents and name = '%s' and trashed = false",
-		gd.GoogleDiskDefault.cfg.FolderID, basename)
+		gds.GoogleDiskDefault.cfg.FolderID, basename)
 
-	files, err := gd.GoogleDiskDefault.Srv.Files.List().Q(query).
+	files, err := gds.GoogleDiskDefault.Srv.Files.List().Q(query).
 		Fields("files(id, name, modifiedTime)").OrderBy("modifiedTime asc").Do()
 	if err != nil {
 		// Если ошибка "Not found" (404), это нормально - просто нет файлов, выходим без ошибки
@@ -152,7 +158,7 @@ func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) err
 	}
 
 	// Если файлов меньше или равно UploadCopiesCount - 1, ничего не удаляем
-	maxCopies := gd.GoogleDiskDefault.cfg.UploadCopiesCount - 1
+	maxCopies := gds.GoogleDiskDefault.cfg.UploadCopiesCount - 1
 	if len(files.Files) <= maxCopies {
 		return nil
 	}
@@ -160,7 +166,7 @@ func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) err
 	// Удаляем самые старые файлы, оставляя только maxCopies копий
 	filesToDelete := len(files.Files) - maxCopies
 	for i := 0; i < filesToDelete; i++ {
-		err := gd.GoogleDiskDefault.Srv.Files.Delete(files.Files[i].Id).Context(ctx).Do()
+		err := gds.GoogleDiskDefault.Srv.Files.Delete(files.Files[i].Id).Context(ctx).Do()
 		if err != nil {
 			slog.Warn("ошибка удаления файла в google disk", "fileId", files.Files[i].Id, "filename", files.Files[i].Name, "error", err)
 		} else {
@@ -169,4 +175,8 @@ func (gd *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) err
 	}
 
 	return nil
+}
+
+func (gds *GoogleDisks) GetIDFolder() string {
+	return gds.GoogleDiskDefault.cfg.FolderID
 }

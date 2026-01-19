@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -28,11 +27,8 @@ func main() {
 
 	// Example 1: Upload a single file
 	filename := "example.txt"
-	fmt.Printf("Uploading file: %s\n", filename)
 	if err := driveService.UploadFile(ctx, filename); err != nil {
 		slog.Error("Failed to upload file", slog.Any("error", err))
 		os.Exit(1)
 	}
-	fmt.Printf("File %s uploaded successfully!\n", filename)
-
 }

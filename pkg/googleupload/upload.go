@@ -4,13 +4,34 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/googleapi"
 )
+
+// progressReader обёртка для Reader с отслеживанием прогресса загрузки
+type progressReader struct {
+	reader        io.Reader
+	totalSize     int64
+	uploadedBytes int64
+}
+
+// Read реализует io.Reader с подсчётом прочитанных байт
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	pr.uploadedBytes += int64(n)
+	return n, err
+}
+
+// Progress возвращает текущий прогресс в байтах
+func (pr *progressReader) Progress() int64 {
+	return pr.uploadedBytes
+}
 
 // UploadFile upload file to Google Drive
 // example googleupload.UploadFile(ctx, "test.zip, UseIDDisk("1"))
@@ -60,7 +81,37 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 		Parents: []string{gds.GoogleDiskDefault.cfg.FolderID},
 	}
 
-	_, err = gd.Srv.Files.Create(driveFile).Media(file).Context(ctx).Do()
+	// Создаём progressReader для отслеживания прогресса загрузки
+	pr := &progressReader{
+		reader:        file,
+		totalSize:     fileSize,
+		uploadedBytes: 0,
+	}
+
+	// Запускаем горутину для логирования прогресса раз в минуту
+	progressChan := make(chan int64, 1)
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				uploaded := pr.Progress()
+				percent := float64(uploaded) / float64(fileSize) * 100
+				slog.Info("загрузка файла в Google Drive",
+					"filename", filename,
+					"uploaded", FormatBytes(uploaded),
+					"total", FormatBytes(fileSize),
+					"progress", fmt.Sprintf("%.2f%%", percent),
+				)
+				progressChan <- uploaded
+			}
+		}
+	}()
+
+	_, err = gd.Srv.Files.Create(driveFile).Media(pr).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("ошибка загрузки файла: %w", err)
 	}

@@ -4,12 +4,13 @@
 # Конфигурация Google Drive
 config_google_drives:
   - id: "0"
-    google_credentials_file: "google_credentials.json"
+    google_credentials_file: "google_credentials_0.json"
     upload_copies_count: 1
     folder_id: "1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3"
+    enable: false
 
-  # Пример дополнительной конфигурации для второго диска
-  # - id: "1"
-  #   google_credentials_file: "google_credentials_secondary.json"
-  #   upload_copies_count: 5
-  #   folder_id: "1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3"
+  - id: "1"
+    google_credentials_file: "google_credentials_1.json"
+    upload_copies_count: 1
+    folder_id: "1FUr5IbiXzuSHoPpze_fofJgtQmwGmbOz"
+    enable: true

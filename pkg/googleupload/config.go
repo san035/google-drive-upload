@@ -2,8 +2,10 @@ package googleupload
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/chinayin/gox/config"
+	"github.com/creasty/defaults"
+	"go.yaml.in/yaml/v3"
 )
 
 const ConfigFilyDefault = "config.yaml"
@@ -20,30 +22,42 @@ type ConfigGoogleDrive struct {
 	GoogleCredentialsFile string `yaml:"google_credentials_file" mapstructure:"google_credentials_file" default:"google_credentials.json"`
 	UploadCopiesCount     int    `yaml:"upload_copies_count" mapstructure:"upload_copies_count" default:"1"`
 	FolderID              string `yaml:"folder_id" mapstructure:"folder_id"`
+	Enable                bool   `yaml:"enable" mapstructure:"enable" default:"true"`
 }
 
-// LoadConfig загружает конфигурацию из YAML файлов с помощью gox/config
+// LoadConfig загружает конфигурацию из YAML файлов
 // Если файлы не указаны, использует config.yaml
-// Поддерживает значения по умолчанию из тегов default и переменные окружения
+// Поддерживает значения по умолчанию из тегов default
 func LoadConfig(yamlFiles ...string) (*Config, error) {
 	// Если файлы не указаны, используем config.yaml по умолчанию
 	if len(yamlFiles) == 0 {
 		yamlFiles = []string{ConfigFilyDefault}
 	}
 
-	// Создаём загрузчик конфигурации
-	loader := config.NewLoader()
-
 	cfg := &Config{}
 
+	// Сначала устанавливаем значения по умолчанию из тегов default
+	if err := defaults.Set(cfg); err != nil {
+		return nil, fmt.Errorf("ошибка установки значений по умолчанию: %v", err)
+	}
+
 	// Загружаем данные из указанных YAML файлов
-	// gox/config автоматически применяет значения по умолчанию и переменные окружения
 	// Последующие файлы перезаписывают значения из предыдущих
 	for _, file := range yamlFiles {
-		if err := loader.Load(file, cfg); err != nil {
+		if err := loadYaml(file, cfg); err != nil {
 			return nil, fmt.Errorf("ошибка загрузки файла конфигурации %s: %v", file, err)
 		}
 	}
 
 	return cfg, nil
+}
+
+// loadYaml загружает конфигурацию из YAML файла
+func loadYaml(file string, cfg *Config) error {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	return yaml.Unmarshal(data, cfg)
 }

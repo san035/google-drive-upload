@@ -2,6 +2,7 @@ package googleupload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"log/slog"
@@ -25,7 +26,7 @@ type GoogleDisk struct {
 }
 
 type Option struct {
-	Id string
+	ID string
 }
 
 // NewDriveService создаёт новый сервис Drive API
@@ -39,8 +40,17 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 	callbackHostPort := config.OAuthCallbackHostPort
 
 	for _, cfg := range config.ConfigGoogleDrives {
+		if !cfg.Enable {
+			continue
+		}
+
 		data, err := os.ReadFile(cfg.GoogleCredentialsFile)
 		if err != nil {
+			// Проверяем, если файл не найден (windows ERROR_FILE_NOT_FOUND = 2, syscall ENOENT)
+			if os.IsNotExist(err) {
+				slog.Error("Файл не найден. Как его получить: https://github.com/san035/google-drive-upload/tree/main/docs/CREDENTIALS_GOOGLE_DRIVE.md", "filename", cfg.GoogleCredentialsFile, "error", err)
+				panic(err)
+			}
 			return nil, err
 		}
 
@@ -74,6 +84,10 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 		listGoogleDisk = append(listGoogleDisk, gd)
 	}
 
+	if len(listGoogleDisk) == 0 {
+		return nil, errors.New("no set config_google_drives")
+	}
+
 	gds := GoogleDisks{
 		GoogleDiskDefault: gdDefault,
 		ListGoogleDisk:    listGoogleDisk,
@@ -81,8 +95,14 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 	return &gds, nil
 }
 
-// UploadFile загружает файл на Google Drive
-func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
+// UploadFile upload file to Google Drive
+// example googleupload.UploadFile(ctx, "test.zip, UseIDDisk("1"))
+func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk ...string) error {
+	gd, err := gds.findGDById(idDisk)
+	if err != nil {
+		return err
+	}
+
 	// Получаем информацию о файле
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
@@ -123,7 +143,7 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 		Parents: []string{gds.GoogleDiskDefault.cfg.FolderID},
 	}
 
-	_, err = gds.GoogleDiskDefault.Srv.Files.Create(driveFile).Media(file).Context(ctx).Do()
+	_, err = gd.Srv.Files.Create(driveFile).Media(file).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("ошибка загрузки файла: %w", err)
 	}
@@ -136,6 +156,24 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string) error {
 	)
 
 	return nil
+}
+
+func (gds *GoogleDisks) findGDById(idDisk []string) (*GoogleDisk, error) {
+	var gd *GoogleDisk
+	if len(idDisk) == 0 {
+		gd = gds.GoogleDiskDefault
+	} else {
+		for _, v := range gds.ListGoogleDisk {
+			if v.cfg.Id == idDisk[0] {
+				gd = v
+				break
+			}
+		}
+		if gd == nil {
+			return nil, errors.New("unknow ID disk")
+		}
+	}
+	return gd, nil
 }
 
 // deleteOldCopies удаляет самые старые копии файла, оставляя UploadCopiesCount - 1 копий
@@ -179,4 +217,8 @@ func (gds *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) er
 
 func (gds *GoogleDisks) GetIDFolder() string {
 	return gds.GoogleDiskDefault.cfg.FolderID
+}
+
+func UseIDDisk(ID string) *Option {
+	return &Option{ID: ID}
 }

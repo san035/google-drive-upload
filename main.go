@@ -11,6 +11,7 @@ import (
 
 const (
 	fileUploadFefault = "send_file.txt"
+	idDisk            = "1"
 )
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 		fileUpload = fileUploadFefault
 	}
 
-	if err := driveService.UploadFile(ctx, fileUpload); err != nil {
+	if err := driveService.UploadFile(ctx, fileUpload, idDisk); err != nil {
 		slog.Error("Ошибка загрузки файла", "error", err)
 		os.Exit(1)
 	}

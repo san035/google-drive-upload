@@ -19,18 +19,28 @@
 ## Шаг 3: Настройка OAuth Consent Screen
 
 1. В меню слева выберите **OAuth consent screen**
-2. Выберите тип пользователя: **External**
-3. Нажмите **Create**
+2. Нажмите кнопку **Get started**
 
-4. Заполните обязательные поля:
+3. Заполните обязательные поля на странице **App Information**:
    - **App name**: `DriveUploader` (или любое имя)
    - **User support email**: выберите ваш email
-   - **Scopes**: нажмите **Add or remove scopes**, найдите `.../auth/drive.file` и выберите его
-   - **Test users**: нажмите **Add users**, введите ваш email
 
-5. Нажмите **Save and continue** → **Back to dashboard**
+6. Нажмите **Next** 
 
-6. Нажмите кнопку **PUBLISH APP** и подтвердите публикацию (выберите "Make App available to all users")
+7. На странице **Audience** выберите **External**, нажмите **Next**
+
+8. Нажмите **Next** на странице **Contact Information**
+
+9. Подтвердите согласие: отметьте **I agree to the Google API Services: User Data Policy** и нажмите **Continue** и **Create**
+
+10. Слева в меню выбрать Audience
+
+11. В разделе **Test users** нажмите **Add users**
+
+12. Введите ваш email (или email пользователя, которому нужен доступ)
+
+13. Нажмите **Save**
+
 
 ## Шаг 4: Создание OAuth 2.0 credentials
 
@@ -39,10 +49,15 @@
 3. Выберите тип приложения **Desktop application**
 4. Введите имя (например, `DriveUploader`)
 5. Нажмите **Create**
-6. Скопируйте **Client ID** и **Client Secret**
-7. Нажмите **Download JSON** для скачивания файла credentials
+6. Нажмите **Download JSON** для скачивания файла credentials
 
 ## Шаг 5: Сохранение credentials
 
-1. Переименуйте скачанный файл в `credentials.json`
+1. Переименуйте скачанный файл в имя которое указано в поле google_credentials_file файла config.yaml
 2. Поместите его в папку с программой
+
+## Шаг 6 Добавить email в список тестировщиков:
+
+1. Перейдите в [Google Cloud Console](https://console.cloud.google.com/)
+2. Выберите ваш проект
+3. В меню слева выберите **OAuth consent screen**

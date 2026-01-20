@@ -35,7 +35,7 @@ func (gd *GoogleDisk) GetToken(config *oauth2.Config) (*oauth2.Token, error) {
 				// Сохраняем обновлённый токен
 				saveErr := SaveToken(tokenFile, newToken)
 				if saveErr == nil {
-					slog.Info("Токен успешно обновлён и сохранён")
+					slog.Info("Token update and save")
 					return newToken, nil
 				}
 				slog.Warn("Не удалось сохранить обновлённый токен", "error", saveErr)

@@ -105,7 +105,7 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 			case <-ticker.C:
 				uploaded := pr.Progress()
 				percent := float64(uploaded) / float64(fileSize) * 100
-				slog.Info("загрузка файла в Google Drive",
+				slog.Info("progress upload in Google Drive",
 					"filename", filename,
 					"uploaded", FormatBytes(uploaded),
 					"total", FormatBytes(fileSize),

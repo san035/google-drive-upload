@@ -54,6 +54,11 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 		// Не прерываем процесс загрузки, если не удалось удалить старые копии
 	}
 
+	// Очищаем корзину Google Disk перед загрузкой
+	if err := gds.emptyTrash(ctx); err != nil {
+		slog.Warn("ошибка очистки корзины Google Disk", "error", err)
+	}
+
 	// Проверяем наличие свободного места
 	hasSpace, quota, err := gds.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
 	if err != nil {
@@ -142,6 +147,31 @@ func (gds *GoogleDisks) findGDById(idDisk string) (*GoogleDisk, error) {
 		}
 	}
 	return gd, nil
+}
+
+// emptyTrash очищает корзину Google Drive (безвозвратно удаляет все файлы из корзины)
+func (gds *GoogleDisks) emptyTrash(ctx context.Context) error {
+	query := "'me' in owners and trashed = true"
+
+	files, err := gds.GoogleDiskDefault.Srv.Files.List().Q(query).Fields("files(id)").Do()
+	if err != nil {
+		return fmt.Errorf("ошибка получения списка файлов в корзине: %w", err)
+	}
+
+	if len(files.Files) == 0 {
+		return nil
+	}
+
+	for _, file := range files.Files {
+		err := gds.GoogleDiskDefault.Srv.Files.Delete(file.Id).Context(ctx).Do()
+		if err != nil {
+			slog.Warn("ошибка удаления файла из корзины", "fileId", file.Id, "error", err)
+		} else {
+			slog.Info("файл безвозвратно удалён из корзины", "fileId", file.Id)
+		}
+	}
+
+	return nil
 }
 
 // deleteOldCopies удаляет самые старые копии файла, оставляя UploadCopiesCount - 1 копий

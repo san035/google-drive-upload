@@ -25,6 +25,18 @@ type ConfigGoogleDrive struct {
 	Enable                bool   `yaml:"enable" mapstructure:"enable" default:"true"`
 }
 
+// Validate проверяет конфигурацию Google Drive
+func (c *ConfigGoogleDrive) Validate() error {
+	_, err := os.Stat(c.GoogleCredentialsFile)
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) {
+		return fmt.Errorf("файл GoogleCredentialsFile не найден: %s. Как его получить: https://github.com/san035/google-drive-upload/tree/main/docs/CREDENTIALS_GOOGLE_DRIVE.md", c.GoogleCredentialsFile)
+	}
+	return err
+}
+
 // LoadConfig загружает конфигурацию из YAML файлов
 // Если файлы не указаны, использует config.yaml
 // Поддерживает значения по умолчанию из тегов default
@@ -36,16 +48,25 @@ func LoadConfig(yamlFiles ...string) (*Config, error) {
 
 	cfg := &Config{}
 
-	// Сначала устанавливаем значения по умолчанию из тегов default
-	if err := defaults.Set(cfg); err != nil {
-		return nil, fmt.Errorf("ошибка установки значений по умолчанию: %v", err)
-	}
-
 	// Загружаем данные из указанных YAML файлов
 	// Последующие файлы перезаписывают значения из предыдущих
 	for _, file := range yamlFiles {
 		if err := loadYaml(file, cfg); err != nil {
 			return nil, fmt.Errorf("ошибка загрузки файла конфигурации %s: %v", file, err)
+		}
+	}
+
+	// значения по умолчанию из тегов default
+	if err := defaults.Set(cfg); err != nil {
+		return nil, fmt.Errorf("ошибка установки значений по умолчанию: %v", err)
+	}
+
+	// Валидируем конфигурацию Google Drive
+	for _, drive := range cfg.ConfigGoogleDrives {
+		if drive.Enable {
+			if err := drive.Validate(); err != nil {
+				return nil, err
+			}
 		}
 	}
 

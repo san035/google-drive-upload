@@ -3,8 +3,6 @@ package googleupload
 import (
 	"context"
 	"errors"
-	"log/slog"
-	"os"
 
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
@@ -36,13 +34,8 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 			continue
 		}
 
-		data, err := os.ReadFile(cfg.GoogleCredentialsFile)
+		data, err := DecryptFile(cfg.GoogleCredentialsFile)
 		if err != nil {
-			// Проверяем, если файл не найден (windows ERROR_FILE_NOT_FOUND = 2, syscall ENOENT)
-			if os.IsNotExist(err) {
-				slog.Error("Файл не найден. Как его получить: https://github.com/san035/google-drive-upload/tree/main/docs/CREDENTIALS_GOOGLE_DRIVE.md", "filename", cfg.GoogleCredentialsFile, "error", err)
-				panic(err)
-			}
 			return nil, err
 		}
 

@@ -19,6 +19,7 @@ import (
 
 // GetToken возвращает токен доступа (из кэша, обновляет или запрашивает новый)
 func (gd *GoogleDisk) GetToken(config *oauth2.Config) (*oauth2.Token, error) {
+	l := slog.With("idDisk", gd.cfg.Id)
 	tokenFile := strings.TrimSuffix(gd.cfg.GoogleCredentialsFile, filepath.Ext(gd.cfg.GoogleCredentialsFile)) + "_token.json"
 	token, err := LoadToken(tokenFile)
 	if err == nil {
@@ -29,19 +30,19 @@ func (gd *GoogleDisk) GetToken(config *oauth2.Config) (*oauth2.Token, error) {
 
 		// Если токен истёк, но есть refresh token - пробуем обновить
 		if token.RefreshToken != "" {
-			slog.Info("Токен истёк, пробуем обновить через refresh token")
+			l.Info("Токен истёк, пробуем обновить через refresh token")
 			newToken, refreshErr := config.TokenSource(context.Background(), token).Token()
 			if refreshErr == nil {
 				// Сохраняем обновлённый токен
 				saveErr := SaveToken(tokenFile, newToken)
 				if saveErr == nil {
-					slog.Info("Token update and save")
+					l.Info("Token update and save")
 					return newToken, nil
 				}
-				slog.Warn("Не удалось сохранить обновлённый токен", "error", saveErr)
+				l.Warn("Не удалось сохранить обновлённый токен", "error", saveErr)
 				return newToken, nil
 			}
-			slog.Warn("Не удалось обновить токен", "error", refreshErr)
+			l.Warn("Не удалось обновить токен", "error", refreshErr)
 		}
 	}
 

@@ -3,6 +3,7 @@ module github.com/san035/google-drive-upload
 go 1.25
 
 require (
+	github.com/billgraziano/dpapi v0.5.0
 	github.com/creasty/defaults v1.8.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/oauth2 v0.34.0
@@ -20,6 +21,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.16.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect

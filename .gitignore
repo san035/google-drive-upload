@@ -42,3 +42,5 @@ Thumbs.db
 send_file.txt
 google*.jml
 *.json
+*.7z
+/cmd/

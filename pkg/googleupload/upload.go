@@ -54,20 +54,9 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 		// Не прерываем процесс загрузки, если не удалось удалить старые копии
 	}
 
-	// Очищаем корзину Google Disk перед загрузкой
-	if err := gds.emptyTrash(ctx); err != nil {
-		slog.Warn("ошибка очистки корзины Google Disk", "error", err)
-	}
-
-	// Проверяем наличие свободного места
-	hasSpace, quota, err := gds.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
-	if err != nil {
-		return fmt.Errorf("ошибка проверки свободного места: %w", err)
-	}
-
-	if !hasSpace {
-		return fmt.Errorf("недостаточно свободного места на Google Drive. Требуется: %s, свободно: %s (всего: %s, используется: %s)",
-			FormatBytes(fileSize), FormatBytes(quota.FreeBytes), FormatBytes(quota.TotalBytes), FormatBytes(quota.UsedBytes))
+	// Умная очистка корзины: очищаем только если не хватает места
+	if err := gds.smartClearTrash(ctx, fileSize); err != nil {
+		return err
 	}
 
 	// Открываем файл для загрузки
@@ -82,8 +71,11 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 	}()
 
 	driveFile := &drive.File{
-		Name:    filepath.Base(filename),
-		Parents: []string{gds.GoogleDiskDefault.cfg.FolderID},
+		Name: filepath.Base(filename),
+	}
+	// Если FolderID указан, загружаем в папку, иначе - в корень диска
+	if gd.cfg.FolderID != "" {
+		driveFile.Parents = []string{gd.cfg.FolderID}
 	}
 
 	// Создаём progressReader для отслеживания прогресса загрузки
@@ -118,14 +110,14 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 
 	_, err = gd.Srv.Files.Create(driveFile).Media(pr).Context(ctx).Do()
 	if err != nil {
-		return fmt.Errorf("ошибка загрузки файла: %w", err)
+		return fmt.Errorf("error upload file: %w", err)
 	}
 
-	slog.Info("Файл успешно загружен",
+	slog.Info("Success upload file",
 		"filename", filename,
+		"idDisk", idDisk,
 		"fileSize", FormatBytes(fileSize),
-		"freeSpaceAfter", FormatBytes(quota.FreeBytes-fileSize),
-		slog.String("url", "https://drive.google.com/drive/folders/"+gds.GetIDFolder()),
+		slog.String("url", gd.GetUrlFolderFile()),
 	)
 
 	return nil
@@ -143,17 +135,21 @@ func (gds *GoogleDisks) findGDById(idDisk string) (*GoogleDisk, error) {
 			}
 		}
 		if gd == nil {
-			return nil, errors.New("unknow ID disk")
+			return nil, errors.New("unknow ID disk: " + idDisk)
 		}
 	}
 	return gd, nil
 }
 
-// emptyTrash очищает корзину Google Drive (безвозвратно удаляет все файлы из корзины)
-func (gds *GoogleDisks) emptyTrash(ctx context.Context) error {
+// emptyTrash очищает корзину Google Drive (безвозвратно удаляет файлы из корзины)
+// Удаляет файлы начиная со старых, пока не освободит至少 clearSize байт
+func (gds *GoogleDisks) emptyTrash(ctx context.Context, clearSize int64) error {
 	query := "'me' in owners and trashed = true"
 
-	files, err := gds.GoogleDiskDefault.Srv.Files.List().Q(query).Fields("files(id)").Do()
+	files, err := gds.GoogleDiskDefault.Srv.Files.List().Q(query).
+		Fields("files(id, name, size, trashedTime, createdTime)").
+		OrderBy("trashedTime asc").
+		Do()
 	if err != nil {
 		return fmt.Errorf("ошибка получения списка файлов в корзине: %w", err)
 	}
@@ -162,14 +158,68 @@ func (gds *GoogleDisks) emptyTrash(ctx context.Context) error {
 		return nil
 	}
 
+	var clearedSize int64
 	for _, file := range files.Files {
+		// Проверяем, достаточно ли уже освобождено места
+		if clearedSize >= clearSize && clearSize > 0 {
+			slog.Info("достигнут лимит освобождаемого места", "clearedSize", clearedSize, "clearSize", clearSize)
+			break
+		}
+
 		err := gds.GoogleDiskDefault.Srv.Files.Delete(file.Id).Context(ctx).Do()
 		if err != nil {
-			slog.Warn("ошибка удаления файла из корзины", "fileId", file.Id, "error", err)
-		} else {
-			slog.Info("файл безвозвратно удалён из корзины", "fileId", file.Id)
+			slog.Warn("ошибка удаления файла из корзины", "filename", file.Name, "createdTime", file.CreatedTime, "error", err)
+			continue
 		}
+
+		slog.Info("файл безвозвратно удалён из корзины", "filename", file.Name, "createdTime", file.CreatedTime, "size", file.Size)
+		clearedSize += file.Size
 	}
+
+	slog.Info("очистка корзины завершена", "clearedSize", clearedSize, "clearSize", clearSize)
+	return nil
+}
+
+// smartClearTrash очищает корзину Google Drive только когда не хватает места для загрузки файла
+func (gds *GoogleDisks) smartClearTrash(ctx context.Context, fileSize int64) error {
+	// Проверяем наличие свободного места
+	hasSpace, quota, err := gds.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
+	if err != nil {
+		return fmt.Errorf("ошибка проверки свободного места: %w", err)
+	}
+
+	// Если места достаточно, не очищаем корзину
+	if hasSpace {
+		return nil
+	}
+
+	slog.Warn("недостаточно места на Google Drive, пробуем очистить корзину",
+		"required", FormatBytes(fileSize),
+		"free", FormatBytes(quota.FreeBytes),
+		"total", FormatBytes(quota.TotalBytes),
+	)
+
+	// Очищаем корзину, освобождая至少 fileSize места
+	if err := gds.emptyTrash(ctx, fileSize); err != nil {
+		slog.Warn("ошибка очистки корзины Google Disk", "error", err)
+		// Не прерываем процесс, пробуем проверить место снова
+	}
+
+	// Проверяем наличие свободного места после очистки корзины
+	hasSpace, quota, err = gds.GoogleDiskDefault.HasEnoughSpace(ctx, fileSize)
+	if err != nil {
+		return fmt.Errorf("ошибка проверки свободного места после очистки корзины: %w", err)
+	}
+
+	if !hasSpace {
+		return fmt.Errorf("недостаточно свободного места на Google Drive даже после очистки корзины. Требуется: %s, свободно: %s (всего: %s, используется: %s)",
+			FormatBytes(fileSize), FormatBytes(quota.FreeBytes), FormatBytes(quota.TotalBytes), FormatBytes(quota.UsedBytes))
+	}
+
+	slog.Info("корзина очищена, места достаточно для загрузки",
+		"required", FormatBytes(fileSize),
+		"free", FormatBytes(quota.FreeBytes),
+	)
 
 	return nil
 }
@@ -180,8 +230,15 @@ func (gds *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) er
 	basename := filepath.Base(filename)
 
 	// Получаем список файлов в папке с таким же именем
-	query := fmt.Sprintf("'%s' in parents and name = '%s' and trashed = false",
-		gds.GoogleDiskDefault.cfg.FolderID, basename)
+	var query string
+	if gds.GoogleDiskDefault.cfg.FolderID != "" {
+		query = fmt.Sprintf("'%s' in parents and name = '%s' and trashed = false",
+			gds.GoogleDiskDefault.cfg.FolderID, basename)
+	} else {
+		// Если FolderID пустой, ищем файлы в корне диска (без родителя)
+		query = fmt.Sprintf("name = '%s' and trashed = false and 'root' in parents",
+			basename)
+	}
 
 	files, err := gds.GoogleDiskDefault.Srv.Files.List().Q(query).
 		Fields("files(id, name, modifiedTime)").OrderBy("modifiedTime asc").Do()

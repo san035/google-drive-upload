@@ -7,11 +7,22 @@ config_google_drives:
     google_credentials_file: "google_credentials_0.json"
     upload_copies_count: 1
     folder_id: "1bdlpF5xWqyNg0vXBLxH5ZbpzDwIkIuw3"
-    enable: false
+    enable: true
 
-  - id: "1"
-    google_credentials_file: "google_credentials_1.json"
+  - id: "TidyArchiver"
+    google_credentials_file: "google_credentials_TidyArchiver.json"
     upload_copies_count: 1
-#   folder_id from url folder https://drive.google.com/drive/u/2/folders/1SY2A2cblPWO7VzlELhmt7tjW5rD7GMKG
-    folder_id: "1SY2A2cblPWO7VzlELhmt7tjW5rD7GMKG"
+    folder_id: ""
+    enable: true
+
+  - id: "TidyArchiver0"
+    google_credentials_file: "google_credentials_TidyArchiver0.json"
+    upload_copies_count: 1
+    folder_id: ""
+    enable: true
+
+  - id: "TidyArchiver1"
+    google_credentials_file: "google_credentials_TidyArchiver1.json"
+    upload_copies_count: 1
+    folder_id: ""
     enable: true

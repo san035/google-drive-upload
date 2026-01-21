@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 
 	"github.com/san035/google-drive-upload/pkg/googleupload"
 
@@ -10,8 +11,8 @@ import (
 )
 
 const (
-	fileUploadFefault = "send_file.txt"
-	idDisk            = "1"
+	fileUploadDefault = "send_file.txt"
+	idDiskDefault     = "1"
 )
 
 func main() {
@@ -29,15 +30,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	var fileUpload string
-	if len(os.Args) > 1 {
-		fileUpload = os.Args[1]
-	} else {
-		fileUpload = fileUploadFefault
-	}
+	file, diskID := getFileAndIDDisk()
 
-	if err := driveService.UploadFile(ctx, fileUpload, idDisk); err != nil {
+	if err := driveService.UploadFile(ctx, file, diskID); err != nil {
 		slog.Error("Ошибка загрузки файла", "error", err)
 		os.Exit(1)
 	}
+}
+
+func getFileAndIDDisk() (file string, diskID string) {
+	for _, arg := range os.Args[1:] {
+		parts := strings.SplitN(arg, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		switch strings.ToLower(parts[0]) {
+		case "file":
+			file = parts[1]
+		case "iddisk":
+			diskID = parts[1]
+		}
+	}
+
+	if file == "" {
+		file = fileUploadDefault
+	}
+	if diskID == "" {
+		diskID = idDiskDefault
+	}
+	return file, diskID
 }

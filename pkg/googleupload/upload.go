@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic" // добавили импорт
 	"time"
 
 	"google.golang.org/api/drive/v3"
@@ -17,25 +18,27 @@ import (
 // progressReader обёртка для Reader с отслеживанием прогресса загрузки
 type progressReader struct {
 	reader        io.Reader
-	totalSize     int64
-	uploadedBytes int64
+	fileSize      int64
+	uploadedBytes atomic.Int64
+	l             *slog.Logger
 }
 
 // Read реализует io.Reader с подсчётом прочитанных байт
 func (pr *progressReader) Read(p []byte) (int, error) {
 	n, err := pr.reader.Read(p)
-	pr.uploadedBytes += int64(n)
+	pr.uploadedBytes.Add(int64(n)) // атомарный инкремент
 	return n, err
 }
 
 // Progress возвращает текущий прогресс в байтах
 func (pr *progressReader) Progress() int64 {
-	return pr.uploadedBytes
+	return pr.uploadedBytes.Load() // атомарное чтение
 }
 
 // UploadFile upload file to Google Drive
 // example googleupload.UploadFile(ctx, "test.zip, UseIDDisk("1"))
 func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk string) error {
+	l := slog.With("file", filename, "idDisk", idDisk)
 	gd, err := gds.findGDById(idDisk)
 	if err != nil {
 		return err
@@ -50,7 +53,7 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 
 	// Удаляем самые старые копии, оставляя UploadCopiesCount - 1 копий
 	if err := gds.deleteOldCopies(ctx, filename); err != nil {
-		slog.Warn("ошибка удаления старых копий", "filename", filename, "error", err)
+		l.Warn("ошибка удаления старых копий", "error", err)
 		// Не прерываем процесс загрузки, если не удалось удалить старые копии
 	}
 
@@ -66,7 +69,7 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			slog.Error("ошибка закрытия файла", "filename", filename, "error", err)
+			l.Error("ошибка закрытия файла", "error", err)
 		}
 	}()
 
@@ -80,47 +83,43 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 
 	// Создаём progressReader для отслеживания прогресса загрузки
 	pr := &progressReader{
-		reader:        file,
-		totalSize:     fileSize,
-		uploadedBytes: 0,
+		reader:   file,
+		fileSize: fileSize,
+		l:        l,
 	}
 
 	// Запускаем горутину для логирования прогресса раз в минуту
-	progressChan := make(chan int64, 1)
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				uploaded := pr.Progress()
-				percent := float64(uploaded) / float64(fileSize) * 100
-				slog.Info("progress upload in Google Drive",
-					"filename", filename,
-					"uploaded", FormatBytes(uploaded),
-					"total", FormatBytes(fileSize),
-					"progress", fmt.Sprintf("%.2f%%", percent),
-				)
-				progressChan <- uploaded
-			}
-		}
-	}()
+	go pr.logProgress(ctx)
 
 	_, err = gd.Srv.Files.Create(driveFile).Media(pr).Context(ctx).Do()
 	if err != nil {
 		return fmt.Errorf("error upload file: %w", err)
 	}
 
-	slog.Info("Success upload file",
-		"filename", filename,
-		"idDisk", idDisk,
+	l.Info("Success upload file",
 		"fileSize", FormatBytes(fileSize),
-		slog.String("url", gd.GetUrlFolderFile()),
+		slog.String("url", gd.GetUrlFile()),
 	)
 
 	return nil
+}
+
+func (pr *progressReader) logProgress(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			uploaded := pr.Progress()
+			percent := float64(uploaded) / float64(pr.fileSize) * 100
+			pr.l.Info("logProgress upload",
+				"logProgress", fmt.Sprintf("%.2f%%", percent),
+				"total", FormatBytes(pr.fileSize),
+			)
+		}
+	}
 }
 
 func (gds *GoogleDisks) findGDById(idDisk string) (*GoogleDisk, error) {

@@ -2,7 +2,7 @@ module example
 
 go 1.25
 
-require github.com/san035/google-drive-upload v1.0.42
+require github.com/san035/google-drive-upload v1.0.47
 
 require (
 	cloud.google.com/go/auth v0.18.0 // indirect

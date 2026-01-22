@@ -27,7 +27,7 @@ func main() {
 
 	// Example 1: Upload a single file
 	filename := "example.txt"
-	if err := driveService.UploadFile(ctx, filename); err != nil {
+	if err := driveService.UploadFile(ctx, filename, "personal-drive"); err != nil {
 		slog.Error("Failed to upload file", slog.Any("error", err))
 		os.Exit(1)
 	}

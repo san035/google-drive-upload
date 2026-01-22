@@ -80,7 +80,7 @@ func NewDriveService(ctx context.Context, config *Config) (*GoogleDisks, error) 
 	return &gds, nil
 }
 
-func (gd *GoogleDisk) GetUrlFolderFile() string {
+func (gd *GoogleDisk) GetUrlFile() string {
 	if gd.cfg.FolderID == "" {
 		return `https://drive.google.com/drive/my-drive`
 	}

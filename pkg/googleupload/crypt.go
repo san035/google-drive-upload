@@ -50,6 +50,11 @@ func EncryptFile(filePath string) error {
 		return nil // файл уже зашифрован
 	}
 
+	err = EncryptContentAndSaveToFile(filePath, content)
+	return err
+}
+
+func EncryptContentAndSaveToFile(filePath string, content []byte) error {
 	// Шифруем данные
 	encryptedData, err := EncryptBytesWithDPAPI(content)
 	if err != nil {
@@ -61,7 +66,8 @@ func EncryptFile(filePath string) error {
 	encodedData := EncryptedMarker + base64.StdEncoding.EncodeToString(encryptedData)
 
 	// Записываем зашифрованные данные обратно в файл
-	return os.WriteFile(filePath, []byte(encodedData), 0600)
+	err = os.WriteFile(filePath, []byte(encodedData), 0600)
+	return err
 }
 
 // DecryptFile дешифрует файл с использованием DPAPI

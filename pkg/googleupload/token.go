@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -137,8 +136,8 @@ func (gd *GoogleDisk) getCodeAuth(config *oauth2.Config) (string, error) {
 }
 
 // LoadToken загружает токен из JSON файла
-func LoadToken(path string) (*oauth2.Token, error) {
-	data, err := os.ReadFile(path)
+func LoadToken(fileToken string) (*oauth2.Token, error) {
+	data, err := DecryptFile(fileToken)
 	if err != nil {
 		return nil, err
 	}
@@ -148,17 +147,19 @@ func LoadToken(path string) (*oauth2.Token, error) {
 		return nil, err
 	}
 
-	slog.Debug("Успешно загружен токен из файла", "expiry", token.Expiry, "file", path)
+	slog.Debug("Успешно загружен токен из файла", "expiry", token.Expiry, "file", fileToken)
 	return token, nil
 }
 
 // SaveToken сохраняет токен в JSON файл
-func SaveToken(path string, token *oauth2.Token) error {
+func SaveToken(fileToken string, token *oauth2.Token) error {
 	data, err := json.MarshalIndent(token, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+
+	err = EncryptContentAndSaveToFile(fileToken, data)
+	return err
 }
 
 // openBrowser открывает URL в браузере по умолчанию

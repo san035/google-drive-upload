@@ -67,11 +67,7 @@ func (gds *GoogleDisks) UploadFile(ctx context.Context, filename string, idDisk 
 	if err != nil {
 		return fmt.Errorf("ошибка открытия файла: %w", err)
 	}
-	defer func() {
-		if err := file.Close(); err != nil {
-			l.Error("ошибка закрытия файла", "error", err)
-		}
-	}()
+	defer deferClose("ошибка закрытия файла", file.Close)
 
 	driveFile := &drive.File{
 		Name: filepath.Base(filename),
@@ -267,4 +263,11 @@ func (gds *GoogleDisks) deleteOldCopies(ctx context.Context, filename string) er
 	}
 
 	return nil
+}
+
+func deferClose(msg string, fc func() error) {
+	err := fc()
+	if err != nil {
+		slog.Error(msg, "error", err)
+	}
 }

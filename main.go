@@ -12,7 +12,7 @@ import (
 
 const (
 	fileUploadDefault = "send_file.txt"
-	idDiskDefault     = "1"
+	idDiskDefault     = ""
 )
 
 func main() {

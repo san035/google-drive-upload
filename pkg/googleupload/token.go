@@ -66,6 +66,7 @@ func (gd *GoogleDisk) GetToken(config *oauth2.Config) (*oauth2.Token, error) {
 }
 
 func (gd *GoogleDisk) getCodeAuth(config *oauth2.Config) (string, error) {
+	l := slog.With("IDDisk", gd.cfg.Id)
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 
 	// HTTP сервер для приёма редиректа
@@ -110,23 +111,23 @@ func (gd *GoogleDisk) getCodeAuth(config *oauth2.Config) (string, error) {
 
 	// Запускаем сервер
 	go func() {
-		slog.Info("Ожидание авторизации", "address", server.Addr)
+		l.Info("Ожидание авторизации", "address", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Ошибка HTTP сервера", "error", err)
+			l.Error("Ошибка HTTP сервера", "error", err)
 		}
 	}()
 
 	// Открываем браузер с ссылкой авторизации
-	slog.Info("Открываю браузер для авторизации", "url", authURL)
+	l.Info("Открываю браузер для авторизации", "url", authURL)
 	if err := openBrowser(authURL); err != nil {
-		slog.Warn("Не удалось открыть браузер, скопируйте ссылку вручную", "url", authURL)
+		l.Warn("Не удалось открыть браузер, скопируйте ссылку вручную", "url", authURL)
 	}
 
 	// Ждём получение кода с таймаутом 5 минут
 	var code string
 	select {
 	case code = <-codeChan:
-		slog.Info("Получен код авторизации")
+		l.Info("Получен код авторизации")
 		_ = server.Shutdown(context.Background())
 	case <-time.After(5 * time.Minute):
 		_ = server.Shutdown(context.Background())
